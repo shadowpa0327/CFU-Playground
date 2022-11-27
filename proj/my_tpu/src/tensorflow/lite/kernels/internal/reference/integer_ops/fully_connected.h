@@ -18,6 +18,8 @@ limitations under the License.
 #include <algorithm>
 #include <stdio.h>
 #include "tensorflow/lite/kernels/internal/common.h"
+#include "cfu.h"
+
 
 namespace tflite {
 namespace reference_integer_ops {
@@ -134,6 +136,10 @@ inline void FullyConnected(
   TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
   const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
 
+
+  printf("batch: %d, accum_depth:%d, output_depth:%d\n", batches, accum_depth, output_depth);
+  uint32_t cfulll = cfu_op0(/* funct7= */ 0, /* in0= */ 1234, /* in1= */ 5678);
+  printf("%ld", cfulll);
   for (int b = 0; b < batches; ++b) {
     for (int out_c = 0; out_c < output_depth; ++out_c) {
       int32_t acc = 0;
