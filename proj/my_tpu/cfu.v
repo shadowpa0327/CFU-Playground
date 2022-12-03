@@ -40,20 +40,20 @@ module Cfu (
 
   // signal for global buffer 
   wire                A_wr_en;
-  wire       [12:0]   A_index_TPU;
-  wire       [12:0]   A_index;
+  wire       [9:0]   A_index_TPU;
+  wire       [9:0]   A_index;
   wire       [31:0]   A_data_in;
   wire       [31:0]   A_data_out;
 
   wire                B_wr_en;
-  wire       [12:0]   B_index_TPU;
-  wire       [12:0]   B_index;
+  wire       [9:0]   B_index_TPU;
+  wire       [9:0]   B_index;
   wire       [31:0]   B_data_in;
   wire       [31:0]   B_data_out;
 
   wire                C_wr_en;
-  wire       [12:0]   C_index_TPU;
-  wire       [12:0]   C_index;
+  wire       [4:0]   C_index_TPU;
+  wire       [4:0]   C_index;
   wire       [127:0]  C_data_in;
   wire       [127:0]  C_data_out;
 
@@ -65,7 +65,7 @@ module Cfu (
   wire            busy;
 
   global_buffer #(
-    .ADDR_BITS(13),
+    .ADDR_BITS(10),
     .DATA_BITS(32)
   )
   gbuff_A(
@@ -78,7 +78,7 @@ module Cfu (
   );
 
   global_buffer #(
-      .ADDR_BITS(13),
+      .ADDR_BITS(10),
       .DATA_BITS(32)
   ) gbuff_B(
       .clk(clk),
@@ -90,7 +90,7 @@ module Cfu (
   );
 
   global_buffer #(
-      .ADDR_BITS(13),
+      .ADDR_BITS(5),
       .DATA_BITS(128)
   ) gbuff_C(
       .clk(clk),
@@ -183,12 +183,12 @@ module Cfu (
   assign B_wr_en = (state == WB) ? 1 :0;
 
   // data for buffer
-  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0_ff[12:0];
+  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0_ff[9:0];
   assign A_data_in = cmd_payload_inputs_1_ff;
-  assign B_index   = (state == CAL) ? B_index_TPU :cmd_payload_inputs_0_ff[12:0];
+  assign B_index   = (state == CAL) ? B_index_TPU :cmd_payload_inputs_0_ff[9:0];
   assign B_data_in = cmd_payload_inputs_1_ff;
   
-  assign C_index   = (state == CAL) ? C_index_TPU :cmd_payload_inputs_0_ff[12:0];
+  assign C_index   = (state == CAL) ? C_index_TPU :cmd_payload_inputs_0_ff[9:0];
 
   // Control signal of TPU
   assign in_valid = (state == CAL_PREPARE) ? 1 : 0;
@@ -217,8 +217,6 @@ module Cfu (
   assign C_buffer_query_result = (which_value_in_a_row == 0)? C_data_out[127:96] : 
                                  (which_value_in_a_row == 1)? C_data_out[95:64]  : 
                                  (which_value_in_a_row == 2) ?C_data_out[63:32] : C_data_out[31:0];
-
-
 
 
   assign rsp_payload_outputs_0 = C_buffer_query_result;
@@ -311,19 +309,19 @@ input [9:0]      N;
 output           busy;
 
 output           A_wr_en;
-output [12:0]    A_index;
+output [9:0]    A_index;
 output [31:0]    A_data_in;
 input  [31:0]    A_data_out;
 
 output           B_wr_en;
 
-output [12:0]    B_index; // (V)
+output [9:0]    B_index; // (V)
 
 output [31:0]    B_data_in; 
 input  [31:0]    B_data_out; // (V)
 
 output           C_wr_en;  // (V)
-output [12:0]    C_index;  // (V)
+output [4:0]    C_index;  // (V)
 output [127:0]   C_data_in;  // (V)
 input  [127:0]   C_data_out; // (X)
 
@@ -473,17 +471,17 @@ wire  [7:0] A3_out[2:0], B3_out[2:0];
 always @(posedge clk,negedge rst_n) begin
     if(!rst_n) begin
         A1_ff <= 0;
-		A2_ff[0] <= 0;
-		A2_ff[1] <= 0;	
-		A3_ff[0] <= 0;
-		A3_ff[1] <= 0;
-		A3_ff[2] <= 0;
-		B1_ff <= 0;
-		B2_ff[0] <= 0;
-		B2_ff[1] <= 0;	
-		B3_ff[0] <= 0;
-		B3_ff[1] <= 0;
-		B3_ff[2] <= 0;
+        A2_ff[0] <= 0;
+        A2_ff[1] <= 0;	
+        A3_ff[0] <= 0;
+        A3_ff[1] <= 0;
+        A3_ff[2] <= 0;
+        B1_ff <= 0;
+        B2_ff[0] <= 0;
+        B2_ff[1] <= 0;	
+        B3_ff[0] <= 0;
+        B3_ff[1] <= 0;
+        B3_ff[2] <= 0;
     end
     else begin
         A1_ff    <= A_data_input[23:16];
