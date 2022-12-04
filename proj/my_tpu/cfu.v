@@ -13,8 +13,8 @@
 // limitations under the License.
 
 
-`define BUFFER_A_DEPTH  10 
-`define BUFFER_B_DEPTH  10 
+`define BUFFER_A_DEPTH  8 
+`define BUFFER_B_DEPTH  8
 `define BUFFER_C_DEPTH  2 
 
 
@@ -205,7 +205,8 @@ module Cfu (
 
 
   // Trivial handshaking for a combinational CFU
-  assign rsp_valid = (state == FINISH) ? 1: 0;
+  //assign rsp_valid = (state == FINISH) ? 1: 0;
+  assign rsp_valid = cmd_valid;
   //assign cmd_ready = ~rsp_valid;
   assign cmd_ready = rsp_ready;
 
@@ -328,7 +329,7 @@ input  [127:0]   C_data_out; // (X)
 
 //* Implement your design here
 // state
-parameter IDLE = 0,CAL =1, WB = 2;
+parameter IDLE = 0,CAL =1, WB = 2, PRE_LOAD=3;
 reg [2:0] next;
 reg  [2:0] state;
 // FSM control data
@@ -352,6 +353,10 @@ wire [`BUFFER_C_DEPTH-1:0] C_index_comb;
 wire [7:0] A_data_input;
 wire [31:0] B_data_input;
 
+reg  [7:0] A_data_input_ff;
+reg  [31:0] B_data_input_ff;
+
+
 // FSM
 always @(posedge clk,negedge rst_n)begin
 	if(!rst_n)begin
@@ -364,10 +369,11 @@ end
 
 always @(*)begin
 	case (state)
-		IDLE: next = (in_valid)? CAL : IDLE;
-		CAL : next = (counterK_ff == K_ff+6)? WB : CAL;		
+		IDLE: next = (in_valid)? CAL: IDLE;
+    PRE_LOAD :next = CAL;
+		CAL : next = (counterK_ff == K_ff+3)? WB : CAL;		
 		WB: begin 
-		  if(counterWB_ff==3) begin 
+		  if(counterWB_ff==1) begin 
           next = IDLE;
           end
 		  else begin
@@ -404,8 +410,6 @@ always @(posedge clk,negedge rst_n)begin
 		B_index_ff<= 0;
 		A_index_ff<= 0;
 		C_index_ff<=0;
-		//counterA_ff<= 0;
-		//counterB_ff<=0;
 		counterK_ff<=0;
 		counterWB_ff<=0;
 	end
@@ -413,20 +417,18 @@ always @(posedge clk,negedge rst_n)begin
 		B_index_ff<= B_index_comb;
 		A_index_ff<= A_index_comb;
 		C_index_ff<=C_index_comb;
-		//counterA_ff<= counterA_comb;
-		//counterB_ff<=counterB_comb;
 		counterK_ff<=counterK_comb;
 		counterWB_ff<=counterWB_comb;	
 	end
 end
 
 assign cal_invalid = (state==CAL && counterK_ff < K_ff)? 1 : 0;
-assign A_data_input = (cal_invalid)?  A_data_out : 0;
-assign B_data_input = (cal_invalid)? B_data_out : 0;
+assign A_data_input = (clear_TPU==1)? 0 : (cal_invalid || state==PRE_LOAD)?  A_data_out : 0;
+assign B_data_input = (clear_TPU==1)? 0 : (cal_invalid || state==PRE_LOAD)?  B_data_out : 0;
 
-assign B_index_comb = (state==IDLE)? 0 : (cal_invalid)? B_index_ff+1 : (counterWB_ff==3) ? 0 : B_index_ff ;
+assign B_index_comb = (state==IDLE)? 0 : (cal_invalid)? B_index_ff+1 : (counterWB_ff==1) ? 0 : B_index_ff ;
 
-assign A_index_comb = (state==IDLE)? 0 : (cal_invalid)? A_index_ff+1 : (counterWB_ff==3) ? 0 : A_index_ff ;
+assign A_index_comb = (state==IDLE)? 0 : (cal_invalid)? A_index_ff+1 : (counterWB_ff==1) ? 0 : A_index_ff ;
 
 assign C_index_comb = (state==IDLE)? 0 : (state==WB)? C_index_ff+1 : C_index_ff ;
 
@@ -441,6 +443,18 @@ reg   [7:0] A2_ff[1:0],  B2_ff[1:0];
 wire  [7:0] A2_out[1:0], B2_out[1:0];
 reg   [7:0] A3_ff[2:0],  B3_ff[2:0];
 wire  [7:0] A3_out[2:0], B3_out[2:0];
+
+always @(posedge clk, negedge rst_n) begin
+  if(!rst_n) begin
+    A_data_input_ff <= 0;
+    B_data_input_ff <= 0;
+  end
+  else begin
+    A_data_input_ff <= A_data_input;
+    B_data_input_ff <= B_data_input;
+  end
+end
+
 
 always @(posedge clk,negedge rst_n) begin
     if(!rst_n) begin
@@ -465,10 +479,10 @@ always @(posedge clk,negedge rst_n) begin
         //A3_ff[1] <= A3_out[0];
         //A3_ff[2] <= A3_out[1];
 
-        B1_ff    <= B_data_input[23:16];
-        B2_ff[0] <= B_data_input[15:8];
+        B1_ff    <= B_data_input_ff[23:16];
+        B2_ff[0] <= B_data_input_ff[15:8];
         B2_ff[1] <= B2_out[0];
-        B3_ff[0] <= B_data_input[7:0];
+        B3_ff[0] <= B_data_input_ff[7:0];
         B3_ff[1] <= B3_out[0];
         B3_ff[2] <= B3_out[1];
     end
@@ -503,12 +517,12 @@ wire  [127:0] C_data_input_comb[3:0];
 wire  clear_TPU;
 
 
-assign clear_TPU = (counterWB_ff == 3)? 1 : 0;
+assign clear_TPU = (counterWB_ff == 1)? 1 : 0;
 // input to Module
 SystolicArray AWDS2588(
 	clk, rst_n, clear_TPU, 
-	A_data_input, A1_out, A2_out[1], A3_out[2], 
-	B_data_input[31:24], B1_out, B2_out[1], B3_out[2], 
+	A_data_input_ff, A1_out, A2_out[1], A3_out[2], 
+	B_data_input_ff[31:24], B1_out, B2_out[1], B3_out[2], 
 	output_wire[0], output_wire[1], output_wire[2], output_wire[3]   
 );
 
@@ -528,12 +542,12 @@ always @(posedge clk,negedge rst_n) begin
     end
 end
 
-assign C_data_input_comb[0] = (counterK_ff == K_ff+6)? output_wire[0]  :  C_data_input_ff[0];
-assign C_data_input_comb[1] = (counterK_ff == K_ff+6)? output_wire[1]  : C_data_input_ff[1];
-assign C_data_input_comb[2] = (counterK_ff == K_ff+6)? output_wire[2]  :  C_data_input_ff[2];
-assign C_data_input_comb[3] = (counterK_ff == K_ff+6)? output_wire[3]  : C_data_input_ff[3];
+assign C_data_input_comb[0] = (counterK_ff == K_ff+3)? output_wire[0]  :  C_data_input_ff[0];
+assign C_data_input_comb[1] = (counterK_ff == K_ff+3)? output_wire[1]  : C_data_input_ff[1];
+assign C_data_input_comb[2] = (counterK_ff == K_ff+3)? output_wire[2]  :  C_data_input_ff[2];
+assign C_data_input_comb[3] = (counterK_ff == K_ff+3)? output_wire[3]  : C_data_input_ff[3];
 
-assign C_wr_en = (state==WB)? (counterWB_ff<M_ff % 4)? 1 : 0 : 0;
+assign C_wr_en = (state==WB)? (counterWB_ff<M_ff)? 1 : 0 : 0;
 assign C_index = C_index_ff;
 assign C_data_in = C_data_input_ff[counterWB_ff];
 
@@ -593,27 +607,30 @@ module SystolicArray(clk, rst_n, clear_TPU, inp_west0, inp_west4, inp_west8, inp
 	PE P2 (inp_north2, outp_east1, clk, rst_n, clear_TPU,outp_south2, outp_east2, result[2]);
 	PE P3 (inp_north3, outp_east2, clk, rst_n, clear_TPU,outp_south3, outp_east3, result[3]);
 	
-	//from west
-	PE P4 (outp_south0, inp_west4, clk, rst_n, clear_TPU, outp_south4, outp_east4, result[4]);
-	PE P8 (outp_south4, inp_west8, clk, rst_n, clear_TPU,outp_south8, outp_east8, result[8]);
-	PE P12 (outp_south8, inp_west12, clk, rst_n,clear_TPU, outp_south12, outp_east12, result[12]);
+	// //from west
+	// PE P4 (outp_south0, inp_west4, clk, rst_n, clear_TPU, outp_south4, outp_east4, result[4]);
+	// PE P8 (outp_south4, inp_west8, clk, rst_n, clear_TPU,outp_south8, outp_east8, result[8]);
+	// PE P12 (outp_south8, inp_west12, clk, rst_n,clear_TPU, outp_south12, outp_east12, result[12]);
 	
-	//no direct inputs
-	//second row
-	PE P5 (outp_south1, outp_east4, clk, rst_n,clear_TPU, outp_south5, outp_east5, result[5]);
-	PE P6 (outp_south2, outp_east5, clk, rst_n, clear_TPU,outp_south6, outp_east6, result[6]);
-	PE P7 (outp_south3, outp_east6, clk, rst_n, clear_TPU,outp_south7, outp_east7, result[7]);
-	//third row
-	PE P9 (outp_south5, outp_east8, clk, rst_n, clear_TPU,outp_south9, outp_east9, result[9]);
-	PE P10 (outp_south6, outp_east9, clk, rst_n, clear_TPU,outp_south10, outp_east10, result[10]);
-	PE P11 (outp_south7, outp_east10, clk, rst_n, clear_TPU,outp_south11, outp_east11, result[11]);
-	//fourth row
-	PE P13 (outp_south9, outp_east12, clk, rst_n, clear_TPU, outp_south13, outp_east13, result[13]);
-	PE P14 (outp_south10, outp_east13, clk, rst_n, clear_TPU, outp_south14, outp_east14, result[14]);
-	PE P15 (outp_south11, outp_east14, clk, rst_n, clear_TPU, outp_south15, outp_east15, result[15]);
+	// //no direct inputs
+	// //second row
+	// PE P5 (outp_south1, outp_east4, clk, rst_n,clear_TPU, outp_south5, outp_east5, result[5]);
+	// PE P6 (outp_south2, outp_east5, clk, rst_n, clear_TPU,outp_south6, outp_east6, result[6]);
+	// PE P7 (outp_south3, outp_east6, clk, rst_n, clear_TPU,outp_south7, outp_east7, result[7]);
+	// //third row
+	// PE P9 (outp_south5, outp_east8, clk, rst_n, clear_TPU,outp_south9, outp_east9, result[9]);
+	// PE P10 (outp_south6, outp_east9, clk, rst_n, clear_TPU,outp_south10, outp_east10, result[10]);
+	// PE P11 (outp_south7, outp_east10, clk, rst_n, clear_TPU,outp_south11, outp_east11, result[11]);
+	// //fourth row
+	// PE P13 (outp_south9, outp_east12, clk, rst_n, clear_TPU, outp_south13, outp_east13, result[13]);
+	// PE P14 (outp_south10, outp_east13, clk, rst_n, clear_TPU, outp_south14, outp_east14, result[14]);
+	// PE P15 (outp_south11, outp_east14, clk, rst_n, clear_TPU, outp_south15, outp_east15, result[15]);
 
 	assign result0 = {result[0], result[1], result[2], result[3]};
-	assign result1 = {result[4], result[5], result[6], result[7]};
-	assign result2 = {result[8], result[9], result[10], result[11]};
-	assign result3 = {result[12], result[13], result[14], result[15]};
+	// assign result1 = {result[4], result[5], result[6], result[7]};
+	// assign result2 = {result[8], result[9], result[10], result[11]};
+	// assign result3 = {result[12], result[13], result[14], result[15]};
+  assign result1 = 0;
+  assign result2 = 0;
+  assign result3 = 0;
 endmodule
