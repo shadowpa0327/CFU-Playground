@@ -13,6 +13,10 @@
 // limitations under the License.
 
 
+`define BUFFER_A_DEPTH  10 
+`define BUFFER_B_DEPTH  10 
+`define BUFFER_C_DEPTH  5 
+
 
 module Cfu (
   input               cmd_valid,
@@ -40,20 +44,20 @@ module Cfu (
 
   // signal for global buffer 
   wire                A_wr_en;
-  wire       [9:0]   A_index_TPU;
-  wire       [9:0]   A_index;
+  wire       [`BUFFER_A_DEPTH-1:0]   A_index_TPU;
+  wire       [`BUFFER_A_DEPTH-1:0]   A_index;
   wire       [31:0]   A_data_in;
   wire       [31:0]   A_data_out;
 
   wire                B_wr_en;
-  wire       [9:0]   B_index_TPU;
-  wire       [9:0]   B_index;
+  wire       [`BUFFER_B_DEPTH-1:0]   B_index_TPU;
+  wire       [`BUFFER_B_DEPTH-1:0]   B_index;
   wire       [31:0]   B_data_in;
   wire       [31:0]   B_data_out;
 
   wire                C_wr_en;
-  wire       [4:0]   C_index_TPU;
-  wire       [4:0]   C_index;
+  wire       [`BUFFER_C_DEPTH-1:0]   C_index_TPU;
+  wire       [`BUFFER_C_DEPTH-1:0]   C_index;
   wire       [127:0]  C_data_in;
   wire       [127:0]  C_data_out;
 
@@ -65,7 +69,7 @@ module Cfu (
   wire            busy;
 
   global_buffer #(
-    .ADDR_BITS(10),
+    .ADDR_BITS(`BUFFER_A_DEPTH),
     .DATA_BITS(32)
   )
   gbuff_A(
@@ -78,7 +82,7 @@ module Cfu (
   );
 
   global_buffer #(
-      .ADDR_BITS(10),
+      .ADDR_BITS(`BUFFER_B_DEPTH),
       .DATA_BITS(32)
   ) gbuff_B(
       .clk(clk),
@@ -90,7 +94,7 @@ module Cfu (
   );
 
   global_buffer #(
-      .ADDR_BITS(5),
+      .ADDR_BITS(`BUFFER_C_DEPTH),
       .DATA_BITS(128)
   ) gbuff_C(
       .clk(clk),
@@ -204,9 +208,6 @@ module Cfu (
   assign rsp_valid = (state == FINISH) ? 1: 0;
   //assign cmd_ready = ~rsp_valid;
   assign cmd_ready = rsp_ready;
-  //
-  // select output -- note that we're not fully decoding the 3 function_id bits
-  //
 
   
   // prepera the result for the READ stage
@@ -309,19 +310,19 @@ input [9:0]      N;
 output           busy;
 
 output           A_wr_en;
-output [9:0]    A_index;
+output [`BUFFER_A_DEPTH-1:0]    A_index;
 output [31:0]    A_data_in;
 input  [31:0]    A_data_out;
 
 output           B_wr_en;
 
-output [9:0]    B_index; // (V)
+output [`BUFFER_B_DEPTH-1:0]    B_index; // (V)
 
 output [31:0]    B_data_in; 
 input  [31:0]    B_data_out; // (V)
 
 output           C_wr_en;  // (V)
-output [4:0]    C_index;  // (V)
+output [`BUFFER_C_DEPTH-1:0]    C_index;  // (V)
 output [127:0]   C_data_in;  // (V)
 input  [127:0]   C_data_out; // (X)
 
@@ -340,8 +341,14 @@ reg   [2:0] counterWB_ff;
 wire  [2:0] counterWB_comb;  
 // 
 wire  cal_invalid;
-reg  [15:0] A_index_ff, B_index_ff, C_index_ff;
-wire [15:0] A_index_comb, B_index_comb, C_index_comb;
+reg  [`BUFFER_A_DEPTH-1:0] A_index_ff; 
+reg  [`BUFFER_B_DEPTH-1:0] B_index_ff; 
+reg  [`BUFFER_C_DEPTH-1:0] C_index_ff;
+
+wire [`BUFFER_A_DEPTH-1:0] A_index_comb;
+wire [`BUFFER_B_DEPTH-1:0] B_index_comb;
+wire [`BUFFER_C_DEPTH-1:0] C_index_comb;
+
 wire [31:0] A_data_input, B_data_input;
 
 // FSM
@@ -360,33 +367,8 @@ always @(*)begin
 		CAL : next = (counterK_ff == K_ff+6)? WB : CAL;		
 		WB: begin 
 		  if(counterWB_ff==3) begin 
-                if(M_ff%4==0)begin  
-                    if(A_index_ff>= (M_ff>>2)*K_ff)begin
-                        if(N_ff%4==0)begin
-                            next = (B_index_ff >= ((N_ff>>2)-1)*K_ff)? IDLE : CAL;                       
-                        end
-                        else begin
-                            next = (B_index_ff >= (N_ff>>2)*K_ff)? IDLE : CAL;
-                        end
-                    end
-                    else begin
-                        next = CAL;
-                    end
-                end
-                else begin
-                    if(A_index_ff>= ((M_ff>>2)*K_ff+1) )begin
-                        if(N_ff%4==0)begin
-                            next = (B_index_ff >= ((N_ff>>2)-1)*K_ff)? IDLE : CAL;                       
-                        end
-                        else begin
-                            next = (B_index_ff >= (N_ff>>2)*K_ff)? IDLE : CAL;
-                        end
-                    end
-                    else begin
-                        next = CAL;
-                    end
-                end
-              end
+          next = IDLE;
+          end
 		  else begin
 		      next = WB;
 		  end
@@ -441,19 +423,11 @@ assign cal_invalid = (state==CAL && counterK_ff < K_ff)? 1 : 0;
 assign A_data_input = (cal_invalid)?  A_data_out : 0;
 assign B_data_input = (cal_invalid)? B_data_out : 0;
 
-//assign B_index_comb = (M_ff%4==0)? (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff))? B_index_ff+K_ff : B_index_ff  : (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff+1))? B_index_ff+K_ff  : (state==IDLE)? 0 : B_index_ff;
+assign B_index_comb = (state==IDLE)? 0 : (cal_invalid)? B_index_ff+1 : (counterWB_ff==3) ? 0 : B_index_ff ;
 
-assign B_index_comb = (state==IDLE)? 0 : (M_ff%4==0)?  (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff))? B_index_ff+K_ff : B_index_ff : (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff+1))? B_index_ff+K_ff : B_index_ff;
+assign A_index_comb = (state==IDLE)? 0 : (cal_invalid)? A_index_ff+1 : (counterWB_ff==3) ? 0 : A_index_ff ;
 
-//assign A_index_comb = (M_ff%4==0)? (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff))?  0 : A_index_ff : (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff+1))?  0 : (cal_invalid)? A_index_ff+1 : A_index_ff;
-
-assign A_index_comb = (cal_invalid)? A_index_ff+1 : (M_ff%4==0)?  (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff))? 0 : A_index_ff  : (counterWB_ff==3 && A_index_ff>=((M_ff>>2)*K_ff+1))? 0 : A_index_ff;
-
-
-//assign C_index_comb = (state==WB)? C_index_ff+1 : (state==IDLE)? 0 :  C_index_ff;
-
-//assign C_index_comb = (state==IDLE)? 0 : (M_ff%4==0)?  (state==WB)? C_index_ff+1 : C_index_ff : (A_index_ff>=(M_ff>>2)*K_ff)? (counterWB_ff<M_ff % 4)? C_index_ff+1 : C_index_ff : (state==WB)? C_index_ff+1 : C_index_ff;
-assign C_index_comb = (state==IDLE)? 0 : (state==WB)? (M_ff%4==0)?  C_index_ff+1 : (A_index_ff>(M_ff>>2)*K_ff)? (counterWB_ff<M_ff % 4)? C_index_ff+1 : C_index_ff : C_index_ff+1  : C_index_ff;
+assign C_index_comb = (state==IDLE)? 0 : (state==WB)? C_index_ff+1 : C_index_ff ;
 
 assign counterK_comb = (state==CAL)? counterK_ff+1 : 0;
 assign counterWB_comb = (state==WB)? counterWB_ff+1 : 0;
@@ -485,18 +459,18 @@ always @(posedge clk,negedge rst_n) begin
     end
     else begin
         A1_ff    <= A_data_input[23:16];
-		A2_ff[0] <= A_data_input[15:8];
-		A2_ff[1] <= A2_out[0];
-		A3_ff[0] <= A_data_input[7:0];
-		A3_ff[1] <= A3_out[0];
-		A3_ff[2] <= A3_out[1];
+        A2_ff[0] <= A_data_input[15:8];
+        A2_ff[1] <= A2_out[0];
+        A3_ff[0] <= A_data_input[7:0];
+        A3_ff[1] <= A3_out[0];
+        A3_ff[2] <= A3_out[1];
 
-		B1_ff    <= B_data_input[23:16];
-		B2_ff[0] <= B_data_input[15:8];
-		B2_ff[1] <= B2_out[0];
-		B3_ff[0] <= B_data_input[7:0];
-		B3_ff[1] <= B3_out[0];
-		B3_ff[2] <= B3_out[1];
+        B1_ff    <= B_data_input[23:16];
+        B2_ff[0] <= B_data_input[15:8];
+        B2_ff[1] <= B2_out[0];
+        B3_ff[0] <= B_data_input[7:0];
+        B3_ff[1] <= B3_out[0];
+        B3_ff[2] <= B3_out[1];
     end
 end
 
@@ -544,12 +518,12 @@ always @(posedge clk,negedge rst_n) begin
     end
 end
 
-assign C_data_input_comb[0] = (counterK_ff == K_ff+6)? output_wire[0] : C_data_input_ff[0];
+assign C_data_input_comb[0] = (counterK_ff == K_ff+6)? output_wire[0]  :  C_data_input_ff[0];
 assign C_data_input_comb[1] = (counterK_ff == K_ff+6)? output_wire[1]  : C_data_input_ff[1];
-assign C_data_input_comb[2] = (counterK_ff == K_ff+6)? output_wire[2] : C_data_input_ff[2];
+assign C_data_input_comb[2] = (counterK_ff == K_ff+6)? output_wire[2]  :  C_data_input_ff[2];
 assign C_data_input_comb[3] = (counterK_ff == K_ff+6)? output_wire[3]  : C_data_input_ff[3];
 
-assign C_wr_en = (state==WB)?  (M_ff%4==0)?  1 : (A_index_ff>(M_ff>>2)*K_ff)? (counterWB_ff<M_ff % 4)? 1 : 0 : 1 : 0;
+assign C_wr_en = (state==WB)? (counterWB_ff<M_ff % 4)? 1 : 0 : 0;
 assign C_index = C_index_ff;
 assign C_data_in = C_data_input_ff[counterWB_ff];
 
@@ -633,6 +607,3 @@ module SystolicArray(clk, rst_n, clear_TPU, inp_west0, inp_west4, inp_west8, inp
 	assign result2 = {result[8], result[9], result[10], result[11]};
 	assign result3 = {result[12], result[13], result[14], result[15]};
 endmodule
-
-
-
