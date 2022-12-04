@@ -137,8 +137,9 @@ inline void FullyConnected(
   TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
   const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
 
+
+  //printf("batch: %d, accum_depth:%d, output_depth:%d\n", batches, accum_depth, output_depth);
   /*
-  printf("batch: %d, accum_depth:%d, output_depth:%d\n", batches, accum_depth, output_depth);
   printf("input_offset: %ld, filter_offset:%ld\n", input_offset, filter_offset);
   uint32_t input = ((uint8_t)(input_data[0]) << 24u ) |
                          ((uint8_t)(input_data[1]) << 16u ) |
@@ -215,8 +216,8 @@ inline void FullyConnected(
   
   for (int out_c = 0; out_c < output_depth; out_c+=4){
     int32_t acc[4]  = {0};
+    //int32_t acc2[4]  = {0};
     for (int d = 0; d < accum_depth; ++d){
-        //printf("%d\n", input_data[d]);
         // input, load 4 input values {input_val[d], 0, 0, 0} to buffer A;
         // filter, load 4 filter values {filter_val[(out_c + 0) * accum_depth + d], 
         //                               filter_val[(out_c + 1) * accum_depth + d], 
@@ -237,16 +238,24 @@ inline void FullyConnected(
         acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]);
         acc[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d]);
         acc[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]);
+
+
+
+        //acc2[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d]) * input_data[d] ;
+        //acc2[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]) * input_data[d];
+        //acc2[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d]) * input_data[d];
+        //acc2[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]  * input_data[d]);
     }
-    //printf("%ld, %ld, %ld, %ld\n", acc[0], acc[1], acc[2], acc[3]);
+    //printf("%ld, %ld, %ld, %ld\n", acc2[0], acc2[1], acc2[2], acc2[3]);
     cfu_op0(/* funct7= */ 2, /* in0= */ accum_depth, /* in1= */ 4);
     // calculate
     //int32_t results[4];
-    
+    //results[0] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 0);
     //results[1] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 1);
     //results[2] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 2);
     //results[3] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 3);
     //printf("%ld, %ld, %ld, %ld\n", results[0], results[1], results[2], results[3]);
+    
     for (int i = 0; i < 4 && (out_c + i < output_depth); i++){
       //int32_t acc = (fetch result from CFU);
       int32_t cfu_query_result = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ i);
@@ -265,7 +274,6 @@ inline void FullyConnected(
       // quantization (clamp)
       // store the result
     }
-    //break;
   }
 
 }

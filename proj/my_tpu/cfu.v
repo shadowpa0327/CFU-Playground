@@ -15,7 +15,7 @@
 
 `define BUFFER_A_DEPTH  10 
 `define BUFFER_B_DEPTH  10 
-`define BUFFER_C_DEPTH  5 
+`define BUFFER_C_DEPTH  2 
 
 
 module Cfu (
@@ -46,8 +46,8 @@ module Cfu (
   wire                A_wr_en;
   wire       [`BUFFER_A_DEPTH-1:0]   A_index_TPU;
   wire       [`BUFFER_A_DEPTH-1:0]   A_index;
-  wire       [31:0]   A_data_in;
-  wire       [31:0]   A_data_out;
+  wire       [7:0]   A_data_in;
+  wire       [7:0]   A_data_out;
 
   wire                B_wr_en;
   wire       [`BUFFER_B_DEPTH-1:0]   B_index_TPU;
@@ -70,7 +70,7 @@ module Cfu (
 
   global_buffer #(
     .ADDR_BITS(`BUFFER_A_DEPTH),
-    .DATA_BITS(32)
+    .DATA_BITS(8)
   )
   gbuff_A(
       .clk(clk),
@@ -187,9 +187,9 @@ module Cfu (
   assign B_wr_en = (state == WB) ? 1 :0;
 
   // data for buffer
-  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0_ff[9:0];
-  assign A_data_in = cmd_payload_inputs_1_ff;
-  assign B_index   = (state == CAL) ? B_index_TPU :cmd_payload_inputs_0_ff[9:0];
+  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0_ff[`BUFFER_A_DEPTH-1:0];
+  assign A_data_in = cmd_payload_inputs_1_ff[31:24];
+  assign B_index   = (state == CAL) ? B_index_TPU : cmd_payload_inputs_0_ff[`BUFFER_B_DEPTH-1:0];
   assign B_data_in = cmd_payload_inputs_1_ff;
   
   assign C_index   = (state == CAL) ? C_index_TPU :cmd_payload_inputs_0_ff[9:0];
@@ -311,8 +311,8 @@ output           busy;
 
 output           A_wr_en;
 output [`BUFFER_A_DEPTH-1:0]    A_index;
-output [31:0]    A_data_in;
-input  [31:0]    A_data_out;
+output [7:0]    A_data_in;
+input  [7:0]    A_data_out;
 
 output           B_wr_en;
 
@@ -349,7 +349,8 @@ wire [`BUFFER_A_DEPTH-1:0] A_index_comb;
 wire [`BUFFER_B_DEPTH-1:0] B_index_comb;
 wire [`BUFFER_C_DEPTH-1:0] C_index_comb;
 
-wire [31:0] A_data_input, B_data_input;
+wire [7:0] A_data_input;
+wire [31:0] B_data_input;
 
 // FSM
 always @(posedge clk,negedge rst_n)begin
@@ -433,8 +434,7 @@ assign counterK_comb = (state==CAL)? counterK_ff+1 : 0;
 assign counterWB_comb = (state==WB)? counterWB_ff+1 : 0;
 
 assign A_index = A_index_ff;
-assign B_index = B_index_ff+counterK_ff;
-
+assign B_index = B_index_ff;
 reg   [7:0] A1_ff,  B1_ff;
 wire  [7:0] A1_out, B1_out;
 reg   [7:0] A2_ff[1:0],  B2_ff[1:0];
@@ -458,12 +458,12 @@ always @(posedge clk,negedge rst_n) begin
         B3_ff[2] <= 0;
     end
     else begin
-        A1_ff    <= A_data_input[23:16];
-        A2_ff[0] <= A_data_input[15:8];
-        A2_ff[1] <= A2_out[0];
-        A3_ff[0] <= A_data_input[7:0];
-        A3_ff[1] <= A3_out[0];
-        A3_ff[2] <= A3_out[1];
+        //A1_ff    <= A_data_input[23:16];
+        //A2_ff[0] <= A_data_input[15:8];
+        //A2_ff[1] <= A2_out[0];
+        //A3_ff[0] <= A_data_input[7:0];
+        //A3_ff[1] <= A3_out[0];
+        //A3_ff[2] <= A3_out[1];
 
         B1_ff    <= B_data_input[23:16];
         B2_ff[0] <= B_data_input[15:8];
@@ -474,12 +474,21 @@ always @(posedge clk,negedge rst_n) begin
     end
 end
 
-assign A1_out = A1_ff;
-assign A2_out[0] = A2_ff[0];
-assign A2_out[1] = A2_ff[1];
-assign A3_out[0] = A3_ff[0];
-assign A3_out[1] = A3_ff[1];
-assign A3_out[2] = A3_ff[2];
+// assign A1_out = A1_ff;
+// assign A2_out[0] = A2_ff[0];
+// assign A2_out[1] = A2_ff[1];
+// assign A3_out[0] = A3_ff[0];
+// assign A3_out[1] = A3_ff[1];
+// assign A3_out[2] = A3_ff[2];
+
+
+assign A1_out = 0;
+assign A2_out[0] = 0;
+assign A2_out[1] = 0;
+assign A3_out[0] = 0;
+assign A3_out[1] = 0;
+assign A3_out[2] = 0;
+
 assign B1_out = B1_ff;
 assign B2_out[0] = B2_ff[0];
 assign B2_out[1] = B2_ff[1];
@@ -493,11 +502,12 @@ reg   [127:0] C_data_input_ff[3:0];
 wire  [127:0] C_data_input_comb[3:0];
 wire  clear_TPU;
 
+
 assign clear_TPU = (counterWB_ff == 3)? 1 : 0;
 // input to Module
 SystolicArray AWDS2588(
 	clk, rst_n, clear_TPU, 
-	A_data_input[31:24], A1_out, A2_out[1], A3_out[2], 
+	A_data_input, A1_out, A2_out[1], A3_out[2], 
 	B_data_input[31:24], B1_out, B2_out[1], B3_out[2], 
 	output_wire[0], output_wire[1], output_wire[2], output_wire[3]   
 );
