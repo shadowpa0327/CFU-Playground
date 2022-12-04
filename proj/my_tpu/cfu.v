@@ -192,7 +192,7 @@ module Cfu (
   assign B_index   = (state == CAL) ? B_index_TPU : cmd_payload_inputs_0_ff[`BUFFER_B_DEPTH-1:0];
   assign B_data_in = cmd_payload_inputs_1_ff;
   
-  assign C_index   = (state == CAL) ? C_index_TPU :cmd_payload_inputs_0_ff[9:0];
+  assign C_index   = (state == CAL) ? C_index_TPU :cmd_payload_inputs_0_ff[`BUFFER_C_DEPTH-1:0];
 
   // Control signal of TPU
   assign in_valid = (state == CAL_PREPARE) ? 1 : 0;
@@ -256,8 +256,8 @@ module global_buffer #(parameter ADDR_BITS=8, parameter DATA_BITS=8)(clk, rst_n,
 //----------------------------------------------------------------------------//
   always @ (negedge clk or negedge rst_n) begin
     if(!rst_n)begin
-      for(i=0; i<(DEPTH); i=i+1)
-        gbuff[i] <= 'd0; 
+      //for(i=0; i<(DEPTH); i=i+1)
+      //  gbuff[i] <= 'd0; 
     end
     else begin
       if(wr_en) begin

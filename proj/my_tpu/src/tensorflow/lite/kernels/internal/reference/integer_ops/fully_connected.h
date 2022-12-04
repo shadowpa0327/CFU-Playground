@@ -216,51 +216,55 @@ inline void FullyConnected(
   
   for (int out_c = 0; out_c < output_depth; out_c+=4){
     int32_t acc[4]  = {0};
-    //int32_t acc2[4]  = {0};
-    for (int d = 0; d < accum_depth; ++d){
-        // input, load 4 input values {input_val[d], 0, 0, 0} to buffer A;
-        // filter, load 4 filter values {filter_val[(out_c + 0) * accum_depth + d], 
-        //                               filter_val[(out_c + 1) * accum_depth + d], 
-        //                               filter_val[(out_c + 2) * accum_depth + d], 
-        //                               filter_val[(out_c + 3) * accum_depth + d]} to buffer B,
+    int32_t tmp_result[4]  = {0};
+    //int cntttt = 0;
+    for (int d = 0; d < accum_depth; d+=256){
+        int counter = 0;
+        for (int cnt = 0; cnt < 256 && (d + cnt) < accum_depth; cnt++){
+          counter++;
+          // input, load 4 input values {input_val[d], 0, 0, 0} to buffer A;
+          // filter, load 4 filter values {filter_val[(out_c + 0) * accum_depth + d], 
+          //                               filter_val[(out_c + 1) * accum_depth + d], 
+          //                               filter_val[(out_c + 2) * accum_depth + d], 
+          //                               filter_val[(out_c + 3) * accum_depth + d]} to buffer B,
+          //printf("%d\n", d + cnt);
+          uint32_t value_to_buffer_a = ((uint8_t)(input_data[d + cnt]) << 24u );
+          
+          cfu_op0(/* funct7= */ 1, /* in0= */ cnt, /* in1= */ value_to_buffer_a);
 
-        uint32_t value_to_buffer_a = ((uint8_t)(input_data[d]) << 24u );
-        
-        int32_t resulttt = cfu_op0(/* funct7= */ 1, /* in0= */ d, /* in1= */ value_to_buffer_a);
+          uint32_t value_to_buffer_b = ((uint8_t)(filter_data[(out_c + 0) * accum_depth + d + cnt]) << 24u ) |
+                                      ((uint8_t)(filter_data[(out_c + 1) * accum_depth + d + cnt]) << 16u ) |
+                                      ((uint8_t)(filter_data[(out_c + 2) * accum_depth + d + cnt]) << 8u  ) |
+                                      ((uint8_t)(filter_data[(out_c + 3) * accum_depth + d + cnt]) << 0u  ) ;
+          cfu_op0(/* funct7= */ 2, /* in0= */ cnt, /* in1= */ value_to_buffer_b);
+          
+          acc[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d + cnt]);
+          acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d + cnt]);
+          acc[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d + cnt]);
+          acc[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d + cnt]);
+        }
+        cfu_op0(/* funct7= */ 3, /* in0= */ counter, /* in1= */ 4);
 
-        printf("Result is %ld\n", resulttt);
-
-        uint32_t value_to_buffer_b = ((uint8_t)(filter_data[(out_c + 0) * accum_depth + d]) << 24u ) |
-                                     ((uint8_t)(filter_data[(out_c + 1) * accum_depth + d]) << 16u ) |
-                                     ((uint8_t)(filter_data[(out_c + 2) * accum_depth + d]) << 8u  ) |
-                                     ((uint8_t)(filter_data[(out_c + 3) * accum_depth + d]) << 0u  ) ;
-        cfu_op0(/* funct7= */ 2, /* in0= */ d, /* in1= */ value_to_buffer_b);
-        
-        acc[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d]);
-        acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]);
-        acc[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d]);
-        acc[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]);
-
-
-
-        //acc2[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d]) * input_data[d] ;
-        //acc2[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]) * input_data[d];
-        //acc2[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d]) * input_data[d];
-        //acc2[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]  * input_data[d]);
+        tmp_result[0] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 0);
+        tmp_result[1] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 1);
+        tmp_result[2] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 2);
+        tmp_result[3] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 3);
+        //printf("%d:%ld, %ld, %ld, %ld\n", counter, acc2[0], acc2[1], acc2[2], acc2[3]);
+        //printf("%d:%ld, %ld, %ld, %ld\n", counter,tmp_result[0], tmp_result[1], tmp_result[2], tmp_result[3]);
     }
-    //printf("%ld, %ld, %ld, %ld\n", acc2[0], acc2[1], acc2[2], acc2[3]);
-    cfu_op0(/* funct7= */ 3, /* in0= */ accum_depth, /* in1= */ 4);
+    
+    
     // calculate
     //int32_t results[4];
     //results[0] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 0);
     //results[1] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 1);
     //results[2] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 2);
     //results[3] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 3);
-    //printf("%ld, %ld, %ld, %ld\n", results[0], results[1], results[2], results[3]);
+    
     
     for (int i = 0; i < 4 && (out_c + i < output_depth); i++){
       //int32_t acc = (fetch result from CFU);
-      int32_t cfu_query_result = cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ i);
+      int32_t cfu_query_result = tmp_result[i];
       cfu_query_result += acc[i] * input_offset;
       // add bias
       if (bias_data) {
@@ -276,8 +280,9 @@ inline void FullyConnected(
       // quantization (clamp)
       // store the result
     }
+    //break;
   }
-
+  
 }
 
 template <typename AccumScalar>
