@@ -150,7 +150,7 @@ module Cfu (
 
   always @(*)begin
     case (state)
-      IDLE: next_state = (funct_7 == 0)? WA : (funct_7 == 1) ? WB : (funct_7 == 2) ? CAL_PREPARE : (funct_7 == 3) ? READ : IDLE;
+      IDLE: next_state = (!cmd_valid)? IDLE :(funct_7 == 1)? WA : (funct_7 == 2) ? WB : (funct_7 == 3) ? CAL_PREPARE : (funct_7 == 4) ? READ : IDLE;
       WA  : next_state = FINISH;
       WB  : next_state = FINISH;
       READ  : next_state = FINISH; 
@@ -178,8 +178,8 @@ module Cfu (
     end
   end
 
-  assign cmd_payload_inputs_0_comb = (cmd_valid)? cmd_payload_inputs_0: cmd_payload_inputs_0_ff;
-  assign cmd_payload_inputs_1_comb = (cmd_valid)? cmd_payload_inputs_1: cmd_payload_inputs_1_ff;
+  assign cmd_payload_inputs_0_comb = (state == FINISH) ? 0 :(cmd_valid)? cmd_payload_inputs_0: cmd_payload_inputs_0_ff;
+  assign cmd_payload_inputs_1_comb = (state == FINISH) ? 0 :(cmd_valid)? cmd_payload_inputs_1: cmd_payload_inputs_1_ff;
 
 
   // Control signal of buffer
@@ -205,10 +205,10 @@ module Cfu (
 
 
   // Trivial handshaking for a combinational CFU
-  //assign rsp_valid = (state == FINISH) ? 1: 0;
-  assign rsp_valid = cmd_valid;
+  assign rsp_valid = (state == FINISH) ? 1: 0;
+  //assign rsp_valid = cmd_valid;
   //assign cmd_ready = ~rsp_valid;
-  assign cmd_ready = rsp_ready;
+  assign cmd_ready = rsp_valid;
 
   
   // prepera the result for the READ stage

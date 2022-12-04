@@ -226,13 +226,15 @@ inline void FullyConnected(
 
         uint32_t value_to_buffer_a = ((uint8_t)(input_data[d]) << 24u );
         
-        cfu_op0(/* funct7= */ 0, /* in0= */ d, /* in1= */ value_to_buffer_a);
+        int32_t resulttt = cfu_op0(/* funct7= */ 1, /* in0= */ d, /* in1= */ value_to_buffer_a);
+
+        printf("Result is %ld\n", resulttt);
 
         uint32_t value_to_buffer_b = ((uint8_t)(filter_data[(out_c + 0) * accum_depth + d]) << 24u ) |
                                      ((uint8_t)(filter_data[(out_c + 1) * accum_depth + d]) << 16u ) |
                                      ((uint8_t)(filter_data[(out_c + 2) * accum_depth + d]) << 8u  ) |
                                      ((uint8_t)(filter_data[(out_c + 3) * accum_depth + d]) << 0u  ) ;
-        cfu_op0(/* funct7= */ 1, /* in0= */ d, /* in1= */ value_to_buffer_b);
+        cfu_op0(/* funct7= */ 2, /* in0= */ d, /* in1= */ value_to_buffer_b);
         
         acc[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d]);
         acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]);
@@ -247,7 +249,7 @@ inline void FullyConnected(
         //acc2[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]  * input_data[d]);
     }
     //printf("%ld, %ld, %ld, %ld\n", acc2[0], acc2[1], acc2[2], acc2[3]);
-    cfu_op0(/* funct7= */ 2, /* in0= */ accum_depth, /* in1= */ 4);
+    cfu_op0(/* funct7= */ 3, /* in0= */ accum_depth, /* in1= */ 4);
     // calculate
     //int32_t results[4];
     //results[0] = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ 0);
@@ -258,7 +260,7 @@ inline void FullyConnected(
     
     for (int i = 0; i < 4 && (out_c + i < output_depth); i++){
       //int32_t acc = (fetch result from CFU);
-      int32_t cfu_query_result = cfu_op0(/* funct7= */ 3, /* in0= */ 0, /* in1= */ i);
+      int32_t cfu_query_result = cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ i);
       cfu_query_result += acc[i] * input_offset;
       // add bias
       if (bias_data) {
