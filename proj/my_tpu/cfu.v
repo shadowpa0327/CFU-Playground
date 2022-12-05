@@ -209,12 +209,6 @@ module Cfu (
 
   assign rsp_payload_outputs_0 = C_buffer_query_result;
 
-
-
-
-
-
-
 endmodule
 
 
