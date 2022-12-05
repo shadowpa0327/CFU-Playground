@@ -13,8 +13,8 @@
 // limitations under the License.
 
 
-`define BUFFER_A_DEPTH  8 
-`define BUFFER_B_DEPTH  8
+`define BUFFER_A_DEPTH  10 
+`define BUFFER_B_DEPTH  10
 `define BUFFER_C_DEPTH  2 
 
 
@@ -150,7 +150,7 @@ module Cfu (
 
   always @(*)begin
     case (state)
-      IDLE: next_state = (!cmd_valid)? IDLE :(funct_7 == 1)? FINISH : (funct_7 == 2) ? FINISH : (funct_7 == 3) ? CAL_PREPARE : (funct_7 == 4) ? READ : IDLE;
+      IDLE: next_state = (!cmd_valid)? IDLE :(funct_7 == 1)? FINISH : (funct_7 == 2) ? FINISH : (funct_7 == 3) ? CAL_PREPARE : (funct_7 == 4) ? FINISH : IDLE;
       WA  : next_state = FINISH;
       WB  : next_state = FINISH;
       READ  : next_state = FINISH; 
@@ -204,7 +204,7 @@ module Cfu (
   assign which_value_in_a_row = cmd_payload_inputs_1_comb[1:0];
   assign C_buffer_query_result = (which_value_in_a_row == 0)? C_data_out[127:96] : 
                                  (which_value_in_a_row == 1)? C_data_out[95:64]  : 
-                                 (which_value_in_a_row == 2) ?C_data_out[63:32] : C_data_out[31:0];
+                                 (which_value_in_a_row == 2)? C_data_out[63:32]  : C_data_out[31:0];
 
 
   assign rsp_payload_outputs_0 = C_buffer_query_result;
