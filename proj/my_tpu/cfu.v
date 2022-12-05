@@ -13,8 +13,8 @@
 // limitations under the License.
 
 
-`define BUFFER_A_DEPTH  8 
-`define BUFFER_B_DEPTH  8
+`define BUFFER_A_DEPTH  10 
+`define BUFFER_B_DEPTH  10
 `define BUFFER_C_DEPTH  2 
 
 
@@ -208,12 +208,6 @@ module Cfu (
 
 
   assign rsp_payload_outputs_0 = C_buffer_query_result;
-
-
-
-
-
-
 
 endmodule
 

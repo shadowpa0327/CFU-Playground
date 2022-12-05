@@ -288,7 +288,7 @@ inline void FullyConnected(
       // quantization (clamp)
       // store the result
     }
-    //break;
+    break;
   }
   
 }
