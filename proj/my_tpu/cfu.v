@@ -36,8 +36,8 @@ module Cfu (
 
   wire       [6:0]    funct_7;
   wire       [2:0]    funct_3;
-  assign funct_7 = cmd_payload_function_id[9:3];
-  assign funct_3 = cmd_payload_function_id[2:0];
+  assign funct_7 = (cmd_valid)? cmd_payload_function_id[9:3] : 0;
+  assign funct_3 = (cmd_valid)? cmd_payload_function_id[2:0] : 0;
   // global signal  
   wire rst_n;
   assign rst_n = ~reset;
@@ -163,42 +163,28 @@ module Cfu (
   // store input signal 
   wire [31:0] cmd_payload_inputs_0_comb;
   wire [31:0] cmd_payload_inputs_1_comb;
-  reg  [31:0] cmd_payload_inputs_0_ff;
-  reg  [31:0] cmd_payload_inputs_1_ff;
 
-
-  always @(posedge clk,negedge rst_n)begin
-	if(!rst_n)begin
-		  cmd_payload_inputs_0_ff <= 0;
-		  cmd_payload_inputs_1_ff <= 0;	
-    end
-    else begin
-      cmd_payload_inputs_0_ff <= cmd_payload_inputs_0_comb;
-      cmd_payload_inputs_1_ff <= cmd_payload_inputs_1_comb;
-    end
-  end
-
-  assign cmd_payload_inputs_0_comb = (state == FINISH) ? 0 :(cmd_valid)? cmd_payload_inputs_0: cmd_payload_inputs_0_ff;
-  assign cmd_payload_inputs_1_comb = (state == FINISH) ? 0 :(cmd_valid)? cmd_payload_inputs_1: cmd_payload_inputs_1_ff;
+  assign cmd_payload_inputs_0_comb = (cmd_valid)? cmd_payload_inputs_0: 0;
+  assign cmd_payload_inputs_1_comb = (cmd_valid)? cmd_payload_inputs_1: 0;
 
 
   // Control signal of buffer
-  assign A_wr_en = (cmd_valid && funct_7 == 1) ? 1 :0;
-  assign B_wr_en = (cmd_valid && funct_7 == 2) ? 1 :0;
+  assign A_wr_en = (!cmd_valid)? 0 : (funct_7 == 1) ? 1 :0;
+  assign B_wr_en = (!cmd_valid)? 0 : (funct_7 == 2) ? 1 :0;
 
   // data for buffer
-  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0[`BUFFER_A_DEPTH-1:0];
-  assign A_data_in = cmd_payload_inputs_1[31:24];
-  assign B_index   = (state == CAL) ? B_index_TPU : cmd_payload_inputs_0[`BUFFER_B_DEPTH-1:0];
-  assign B_data_in = cmd_payload_inputs_1;
+  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0_comb[`BUFFER_A_DEPTH-1:0];
+  assign A_data_in = cmd_payload_inputs_1_comb[31:24];
+  assign B_index   = (state == CAL) ? B_index_TPU : cmd_payload_inputs_0_comb[`BUFFER_B_DEPTH-1:0];
+  assign B_data_in = cmd_payload_inputs_1_comb;
   
-  assign C_index   = (state == CAL) ? C_index_TPU : cmd_payload_inputs_0[`BUFFER_C_DEPTH-1:0];
+  assign C_index   = (state == CAL) ? C_index_TPU : cmd_payload_inputs_0_comb[`BUFFER_C_DEPTH-1:0];
 
   // Control signal of TPU
   assign in_valid = (state == CAL_PREPARE) ? 1 : 0;
   assign M = 1;
-  assign K = cmd_payload_inputs_0_ff[9:0];
-  assign N = cmd_payload_inputs_1_ff[9:0];
+  assign K = cmd_payload_inputs_0_comb[9:0];
+  assign N = cmd_payload_inputs_1_comb[9:0];
 
 
 
@@ -215,7 +201,7 @@ module Cfu (
 
   wire [31:0]  C_buffer_query_result;
   wire [1:0]   which_value_in_a_row;
-  assign which_value_in_a_row = cmd_payload_inputs_1_ff[1:0];
+  assign which_value_in_a_row = cmd_payload_inputs_1_comb[1:0];
   assign C_buffer_query_result = (which_value_in_a_row == 0)? C_data_out[127:96] : 
                                  (which_value_in_a_row == 1)? C_data_out[95:64]  : 
                                  (which_value_in_a_row == 2) ?C_data_out[63:32] : C_data_out[31:0];
@@ -249,23 +235,17 @@ module global_buffer #(parameter ADDR_BITS=8, parameter DATA_BITS=8)(clk, rst_n,
 // Global buffer (Don't change the name)                                      //
 //----------------------------------------------------------------------------//
   // reg [`GBUFF_ADDR_SIZE-1:0] gbuff [`WORD_SIZE-1:0];
-  reg [DATA_BITS-1:0] gbuff [DEPTH-1:0];
+  (* ram_style = "block"*)reg [DATA_BITS-1:0] gbuff [DEPTH-1:0];
 
 //----------------------------------------------------------------------------//
 // Global buffer read write behavior                                          //
 //----------------------------------------------------------------------------//
-  always @ (negedge clk or negedge rst_n) begin
-    if(!rst_n)begin
-      for(i=0; i<(DEPTH); i=i+1)
-        gbuff[i] <= 'd0; 
+  always @ (negedge clk) begin
+    if(wr_en) begin
+      gbuff[index] <= data_in;
     end
     else begin
-      if(wr_en) begin
-        gbuff[index] <= data_in;
-      end
-      else begin
-        data_out <= gbuff[index];
-      end
+      data_out <= gbuff[index];
     end
   end
 
