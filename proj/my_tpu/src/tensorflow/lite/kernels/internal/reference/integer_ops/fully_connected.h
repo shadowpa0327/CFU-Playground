@@ -217,6 +217,7 @@ inline void FullyConnected(
   for (int out_c = 0; out_c < output_depth; out_c+=4){
     int32_t acc[4]  = {0};
     int32_t tmp_result[4]  = {0};
+    //int32_t acc2[4]  = {0};
     //int cntttt = 0;
     for (int d = 0; d < accum_depth; d+=256){
         int counter = 0;
@@ -242,6 +243,13 @@ inline void FullyConnected(
           acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d + cnt]);
           acc[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d + cnt]);
           acc[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d + cnt]);
+
+
+
+          // acc2[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d + cnt]) * (input_data[d + cnt]);
+          // acc2[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d + cnt]) * (input_data[d + cnt]);
+          // acc2[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d + cnt]) * (input_data[d + cnt]);
+          // acc2[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d + cnt]) * (input_data[d + cnt]);
         }
         cfu_op0(/* funct7= */ 3, /* in0= */ counter, /* in1= */ 4);
 
@@ -249,8 +257,8 @@ inline void FullyConnected(
         tmp_result[1] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 1);
         tmp_result[2] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 2);
         tmp_result[3] += cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ 3);
-        //printf("%d:%ld, %ld, %ld, %ld\n", counter, acc2[0], acc2[1], acc2[2], acc2[3]);
-        //printf("%d:%ld, %ld, %ld, %ld\n", counter,tmp_result[0], tmp_result[1], tmp_result[2], tmp_result[3]);
+        // printf("%d:%ld, %ld, %ld, %ld\n", counter, acc2[0], acc2[1], acc2[2], acc2[3]);
+        // printf("%d:%ld, %ld, %ld, %ld\n", counter,tmp_result[0], tmp_result[1], tmp_result[2], tmp_result[3]);
     }
     
     

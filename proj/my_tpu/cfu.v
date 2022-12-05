@@ -150,7 +150,7 @@ module Cfu (
 
   always @(*)begin
     case (state)
-      IDLE: next_state = (!cmd_valid)? IDLE :(funct_7 == 1)? WA : (funct_7 == 2) ? WB : (funct_7 == 3) ? CAL_PREPARE : (funct_7 == 4) ? READ : IDLE;
+      IDLE: next_state = (!cmd_valid)? IDLE :(funct_7 == 1)? FINISH : (funct_7 == 2) ? FINISH : (funct_7 == 3) ? CAL_PREPARE : (funct_7 == 4) ? READ : IDLE;
       WA  : next_state = FINISH;
       WB  : next_state = FINISH;
       READ  : next_state = FINISH; 
@@ -183,16 +183,16 @@ module Cfu (
 
 
   // Control signal of buffer
-  assign A_wr_en = (state == WA) ? 1 :0;
-  assign B_wr_en = (state == WB) ? 1 :0;
+  assign A_wr_en = (cmd_valid && funct_7 == 1) ? 1 :0;
+  assign B_wr_en = (cmd_valid && funct_7 == 2) ? 1 :0;
 
   // data for buffer
-  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0_ff[`BUFFER_A_DEPTH-1:0];
-  assign A_data_in = cmd_payload_inputs_1_ff[31:24];
-  assign B_index   = (state == CAL) ? B_index_TPU : cmd_payload_inputs_0_ff[`BUFFER_B_DEPTH-1:0];
-  assign B_data_in = cmd_payload_inputs_1_ff;
+  assign A_index   = (state == CAL) ? A_index_TPU : cmd_payload_inputs_0[`BUFFER_A_DEPTH-1:0];
+  assign A_data_in = cmd_payload_inputs_1[31:24];
+  assign B_index   = (state == CAL) ? B_index_TPU : cmd_payload_inputs_0[`BUFFER_B_DEPTH-1:0];
+  assign B_data_in = cmd_payload_inputs_1;
   
-  assign C_index   = (state == CAL) ? C_index_TPU :cmd_payload_inputs_0_ff[`BUFFER_C_DEPTH-1:0];
+  assign C_index   = (state == CAL) ? C_index_TPU : cmd_payload_inputs_0[`BUFFER_C_DEPTH-1:0];
 
   // Control signal of TPU
   assign in_valid = (state == CAL_PREPARE) ? 1 : 0;
@@ -256,8 +256,8 @@ module global_buffer #(parameter ADDR_BITS=8, parameter DATA_BITS=8)(clk, rst_n,
 //----------------------------------------------------------------------------//
   always @ (negedge clk or negedge rst_n) begin
     if(!rst_n)begin
-      //for(i=0; i<(DEPTH); i=i+1)
-      //  gbuff[i] <= 'd0; 
+      for(i=0; i<(DEPTH); i=i+1)
+        gbuff[i] <= 'd0; 
     end
     else begin
       if(wr_en) begin
