@@ -582,23 +582,23 @@ module SystolicArray(clk, rst_n, clear_TPU, inp_west0, inp_west4, inp_west8, inp
 	PE P3 (inp_north3, outp_east2, clk, rst_n, clear_TPU,outp_south3, outp_east3, result[3]);
 	
 	// //from west
-	// PE P4 (outp_south0, inp_west4, clk, rst_n, clear_TPU, outp_south4, outp_east4, result[4]);
-	// PE P8 (outp_south4, inp_west8, clk, rst_n, clear_TPU,outp_south8, outp_east8, result[8]);
-	// PE P12 (outp_south8, inp_west12, clk, rst_n,clear_TPU, outp_south12, outp_east12, result[12]);
+	PE P4 (outp_south0, inp_west4, clk, rst_n, clear_TPU, outp_south4, outp_east4, result[4]);
+	PE P8 (outp_south4, inp_west8, clk, rst_n, clear_TPU,outp_south8, outp_east8, result[8]);
+	PE P12 (outp_south8, inp_west12, clk, rst_n,clear_TPU, outp_south12, outp_east12, result[12]);
 	
-	// //no direct inputs
-	// //second row
-	// PE P5 (outp_south1, outp_east4, clk, rst_n,clear_TPU, outp_south5, outp_east5, result[5]);
-	// PE P6 (outp_south2, outp_east5, clk, rst_n, clear_TPU,outp_south6, outp_east6, result[6]);
-	// PE P7 (outp_south3, outp_east6, clk, rst_n, clear_TPU,outp_south7, outp_east7, result[7]);
-	// //third row
-	// PE P9 (outp_south5, outp_east8, clk, rst_n, clear_TPU,outp_south9, outp_east9, result[9]);
-	// PE P10 (outp_south6, outp_east9, clk, rst_n, clear_TPU,outp_south10, outp_east10, result[10]);
-	// PE P11 (outp_south7, outp_east10, clk, rst_n, clear_TPU,outp_south11, outp_east11, result[11]);
-	// //fourth row
-	// PE P13 (outp_south9, outp_east12, clk, rst_n, clear_TPU, outp_south13, outp_east13, result[13]);
-	// PE P14 (outp_south10, outp_east13, clk, rst_n, clear_TPU, outp_south14, outp_east14, result[14]);
-	// PE P15 (outp_south11, outp_east14, clk, rst_n, clear_TPU, outp_south15, outp_east15, result[15]);
+	//no direct inputs
+	//second row
+	PE P5 (outp_south1, outp_east4, clk, rst_n,clear_TPU, outp_south5, outp_east5, result[5]);
+	PE P6 (outp_south2, outp_east5, clk, rst_n, clear_TPU,outp_south6, outp_east6, result[6]);
+	PE P7 (outp_south3, outp_east6, clk, rst_n, clear_TPU,outp_south7, outp_east7, result[7]);
+	//third row
+	PE P9 (outp_south5, outp_east8, clk, rst_n, clear_TPU,outp_south9, outp_east9, result[9]);
+	PE P10 (outp_south6, outp_east9, clk, rst_n, clear_TPU,outp_south10, outp_east10, result[10]);
+	PE P11 (outp_south7, outp_east10, clk, rst_n, clear_TPU,outp_south11, outp_east11, result[11]);
+	//fourth row
+	PE P13 (outp_south9, outp_east12, clk, rst_n, clear_TPU, outp_south13, outp_east13, result[13]);
+	PE P14 (outp_south10, outp_east13, clk, rst_n, clear_TPU, outp_south14, outp_east14, result[14]);
+	PE P15 (outp_south11, outp_east14, clk, rst_n, clear_TPU, outp_south15, outp_east15, result[15]);
 
 	assign result0 = {result[0], result[1], result[2], result[3]};
 	// assign result1 = {result[4], result[5], result[6], result[7]};

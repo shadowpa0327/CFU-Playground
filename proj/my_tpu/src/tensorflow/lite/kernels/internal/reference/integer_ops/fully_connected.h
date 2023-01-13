@@ -132,13 +132,14 @@ inline void FullyConnected(
   TFLITE_DCHECK_LE(output_activation_min, output_activation_max);
   const int filter_dim_count = filter_shape.DimensionsCount();
   const int output_dim_count = output_shape.DimensionsCount();
-  //const int batches = FlatSizeSkipDim(output_shape, output_dim_count - 1);
+  const int batches = FlatSizeSkipDim(output_shape, output_dim_count - 1);
   const int output_depth = output_shape.Dims(output_dim_count - 1);
   TFLITE_DCHECK_LE(output_depth, filter_shape.Dims(filter_dim_count - 2));
   const int accum_depth = filter_shape.Dims(filter_dim_count - 1);
 
+  
   perf_enable_counter(1);
-  //for (int b = 0; b < batches; ++b) {
+  for (int b = 0; b < batches; ++b) {
     for (int out_c = 0; out_c < output_depth; ++out_c) {
       int32_t acc = 0;
       for (int d = 0; d < accum_depth; ++d) {
@@ -155,58 +156,58 @@ inline void FullyConnected(
       acc = std::min(acc, output_activation_max);
       output_data[out_c + output_depth * 0] = static_cast<int8_t>(acc);
     }
-  //}
-  perf_disable_counter(1);
-
-
-
-  perf_enable_counter(0);
-  for (int out_c = 0; out_c < output_depth; out_c+=4){
-    int32_t acc[4]  = {0};
-    for (int d = 0; d < accum_depth; ++d){
-        // filter, load 4 filter values {filter_val[(out_c + 0) * accum_depth + d], 
-        //                               filter_val[(out_c + 1) * accum_depth + d], 
-        //                               filter_val[(out_c + 2) * accum_depth + d], 
-        //                               filter_val[(out_c + 3) * accum_depth + d]} to buffer B,
-
-        if (out_c == 0){
-          uint32_t value_to_buffer_a = ((uint8_t)(input_data[d]) << 24u );
-          cfu_op0(/* funct7= */ 1, /* in0= */ d, /* in1= */ value_to_buffer_a);
-        }
-      
-        uint32_t value_to_buffer_b = ((uint8_t)(filter_data[(out_c + 0) * accum_depth + d]) << 24u ) |
-                                     ((uint8_t)(filter_data[(out_c + 1) * accum_depth + d]) << 16u ) |
-                                     ((uint8_t)(filter_data[(out_c + 2) * accum_depth + d]) << 8u  ) |
-                                     ((uint8_t)(filter_data[(out_c + 3) * accum_depth + d]) << 0u  ) ;
-        cfu_op0(/* funct7= */ 2, /* in0= */ d, /* in1= */ value_to_buffer_b);
-
-        acc[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d]);
-        acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]);
-        acc[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d]);
-        acc[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]);
-    }
-    cfu_op0(/* funct7= */ 3, /* in0= */ accum_depth, /* in1= */ 4);
-    for (int i = 0; i < 4 && (out_c + i < output_depth); i++){
-      //int32_t acc = (fetch result from CFU);
-      int32_t cfu_query_result = cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ i);
-      cfu_query_result += acc[i] * input_offset;
-      // add bias
-      if (bias_data) {
-          cfu_query_result += bias_data[out_c + i];
-      }
-      cfu_query_result = MultiplyByQuantizedMultiplier(cfu_query_result, output_multiplier, output_shift);
-      cfu_query_result += output_offset;
-      cfu_query_result = std::max(cfu_query_result, output_activation_min);
-      cfu_query_result = std::min(cfu_query_result, output_activation_max);
-      output_data[out_c + output_depth * 0 + i] = static_cast<int8_t>(cfu_query_result);
-      // quantization (multiply the scaling factor)
-      // quantization (offset)
-      // quantization (clamp)
-      // store the result
-    } 
-
   }
-  perf_disable_counter(0);
+  perf_disable_counter(1);
+  
+
+  
+  // perf_enable_counter(0);
+  // for (int out_c = 0; out_c < output_depth; out_c+=4){
+  //   int32_t acc[4]  = {0};
+  //   for (int d = 0; d < accum_depth; ++d){
+  //       // filter, load 4 filter values {filter_val[(out_c + 0) * accum_depth + d], 
+  //       //                               filter_val[(out_c + 1) * accum_depth + d], 
+  //       //                               filter_val[(out_c + 2) * accum_depth + d], 
+  //       //                               filter_val[(out_c + 3) * accum_depth + d]} to buffer B,
+
+  //       if (out_c == 0){
+  //         uint32_t value_to_buffer_a = ((uint8_t)(input_data[d]) << 24u );
+  //         cfu_op0(/* funct7= */ 1, /* in0= */ d, /* in1= */ value_to_buffer_a);
+  //       }
+      
+  //       uint32_t value_to_buffer_b = ((uint8_t)(filter_data[(out_c + 0) * accum_depth + d]) << 24u ) |
+  //                                    ((uint8_t)(filter_data[(out_c + 1) * accum_depth + d]) << 16u ) |
+  //                                    ((uint8_t)(filter_data[(out_c + 2) * accum_depth + d]) << 8u  ) |
+  //                                    ((uint8_t)(filter_data[(out_c + 3) * accum_depth + d]) << 0u  ) ;
+  //       cfu_op0(/* funct7= */ 2, /* in0= */ d, /* in1= */ value_to_buffer_b);
+
+  //       acc[0] += (int32_t)(filter_data[(out_c + 0) * accum_depth + d]);
+  //       acc[1] += (int32_t)(filter_data[(out_c + 1) * accum_depth + d]);
+  //       acc[2] += (int32_t)(filter_data[(out_c + 2) * accum_depth + d]);
+  //       acc[3] += (int32_t)(filter_data[(out_c + 3) * accum_depth + d]);
+  //   }
+  //   cfu_op0(/* funct7= */ 3, /* in0= */ accum_depth, /* in1= */ 4);
+  //   for (int i = 0; i < 4 && (out_c + i < output_depth); i++){
+  //     //int32_t acc = (fetch result from CFU);
+  //     int32_t cfu_query_result = cfu_op0(/* funct7= */ 4, /* in0= */ 0, /* in1= */ i);
+  //     cfu_query_result += acc[i] * input_offset;
+  //     // add bias
+  //     if (bias_data) {
+  //         cfu_query_result += bias_data[out_c + i];
+  //     }
+  //     cfu_query_result = MultiplyByQuantizedMultiplier(cfu_query_result, output_multiplier, output_shift);
+  //     cfu_query_result += output_offset;
+  //     cfu_query_result = std::max(cfu_query_result, output_activation_min);
+  //     cfu_query_result = std::min(cfu_query_result, output_activation_max);
+  //     output_data[out_c + output_depth * 0 + i] = static_cast<int8_t>(cfu_query_result);
+  //     // quantization (multiply the scaling factor)
+  //     // quantization (offset)
+  //     // quantization (clamp)
+  //     // store the result
+  //   } 
+  
+  // }
+  // perf_disable_counter(0);
 }
   
 
